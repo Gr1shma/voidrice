@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+export WAYLAND_DISPLAY="${WAYLAND_DISPLAY}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
+BOOKMARKS_FILE="$HOME/dox/bookmarks"
+
+[[ ! -f $BOOKMARKS_FILE ]] && notify-send "Bookmarks" "File not found at $BOOKMARKS_FILE" && exit 1
+
+process_bookmarks() {
+    while IFS= read -r line || [[ -n $line ]]; do
+        [[ -z $line || $line =~ ^[[:space:]]*# ]] && continue
+        if [[ $line =~ ^([^#]+)#(.+)$ ]]; then
+            url="${BASH_REMATCH[1]%"${BASH_REMATCH[1]##*[! ]}"}"
+            tags=$(echo "${BASH_REMATCH[2]}" | sed 's/#/ /g' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//' | tr -s ' ')
+            echo "$tags | $url"
+        else
+            echo "$line | $line"
+        fi
+    done <"$BOOKMARKS_FILE"
+}
+
+handle_selection() {
+    local item="${1#*| }"
+    if [[ $item =~ ^https?:// ]]; then
+        setsid -f "${BROWSER:-zen-browser}" --new-tab "$item" >/dev/null 2>&1
+        sleep 0.3
+    else
+        echo -n "$item" | wl-copy
+        notify-send "Bookmarks" "Copied to clipboard"
+    fi
+}
+
+case "${1:-}" in
+-e | --edit) ${EDITOR:-nvim} "$BOOKMARKS_FILE" ;;
+-t | --test) process_bookmarks ;;
+"")
+    bookmarks=$(process_bookmarks)
+    [[ -z $bookmarks ]] && exit 1
+    selection=$(echo "$bookmarks" | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Bookmarks: ')
+    [[ -n $selection ]] && handle_selection "$selection"
+    ;;
+*) notify-send "Bookmarks" "Unknown option: $1" && exit 1 ;;
+
+esac

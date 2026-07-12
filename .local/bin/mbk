@@ -1,0 +1,101 @@
+#!/bin/bash
+
+HARD_DISK_MOUNT_POINT="/run/media/$USER/E27AFFE97AFFB87D"
+BACKUP_DIR="$HARD_DISK_MOUNT_POINT/Phone_Backup"
+LOG_DIR="$BACKUP_DIR/logs"
+LOG_FILE="$LOG_DIR/backup_$(date +%Y-%m-%d_%H-%M-%S).log"
+
+PHONE_MTP=$(ls /run/user/$UID/gvfs/ | grep "^mtp" | head -n 1)
+PHONE_BASE="/run/user/$UID/gvfs/$PHONE_MTP/Internal shared storage"
+
+if [ ! -d "$HARD_DISK_MOUNT_POINT" ]; then
+    echo "Error: Hard disk not mounted at $HARD_DISK_MOUNT_POINT"
+    exit 1
+fi
+
+if [ -z "$PHONE_MTP" ] || [ ! -d "$PHONE_BASE" ]; then
+    echo "Error: Phone not found. Ensure phone is unlocked and in 'File Transfer' mode."
+    exit 1
+fi
+
+if ! command -v rsync &>/dev/null; then
+    echo "Error: rsync not installed."
+    exit 1
+fi
+
+mkdir -p "$BACKUP_DIR" "$LOG_DIR"
+echo "Backup : $BACKUP_DIR"
+echo "Phone  : $PHONE_BASE"
+echo "Started: $(date)" | tee "$LOG_FILE"
+
+declare -A folders=(
+    ["DCIM"]="DCIM"
+    ["Pictures"]="Pictures"
+    ["Movies"]="Movies"
+    ["Music"]="Music"
+    ["Download"]="Download"
+    ["Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images"]="WhatsApp_Images"
+    ["Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video"]="WhatsApp_Videos"
+    ["Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Animated Gifs"]="WhatsApp_GIFs"
+    ["Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Audio"]="WhatsApp_Audio"
+    ["Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Documents"]="WhatsApp_Documents"
+    ["Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Voice Notes"]="WhatsApp_VoiceNotes"
+)
+
+RSYNC_OPTS=(
+    -av
+    --progress
+    --partial
+    --times
+    --ignore-errors
+    --update
+    --delete
+    --itemize-changes
+    --exclude=".*"
+)
+
+total=${#folders[@]}
+current=0
+
+for folder in "${!folders[@]}"; do
+    current=$((current + 1))
+    dest="${folders[$folder]}"
+
+    echo ""
+    echo "[$current/$total] $dest"
+
+    if [ ! -d "$PHONE_BASE/$folder" ]; then
+        echo "  Skipped: not found on phone"
+        echo "Skipped: $folder" >>"$LOG_FILE"
+        continue
+    fi
+
+    rsync "${RSYNC_OPTS[@]}" "$PHONE_BASE/$folder/" "$BACKUP_DIR/$dest/" 2>&1 |
+        tee -a "$LOG_FILE" |
+        while IFS= read -r line; do
+            if [[ "$line" == \*deleting* ]]; then
+                echo "  - ${line#\*deleting }"
+            elif [[ "$line" == \>f* ]]; then
+                echo "  + ${line:10}"
+            elif [[ "$line" == cd* ]]; then
+                echo "  > ${line:10}"
+            elif [[ "$line" == *"bytes/sec"* ]]; then
+                echo "  ~ $line"
+            fi
+        done
+
+    if [ "${PIPESTATUS[0]}" -eq 0 ]; then
+        echo "  ✓ Done"
+        echo "Success: $folder" >>"$LOG_FILE"
+    else
+        echo "  ✗ Error"
+        echo "Error: $folder" >>"$LOG_FILE"
+    fi
+done
+
+echo ""
+echo "Completed: $(date)"
+echo "Location : $BACKUP_DIR"
+echo "Size     : $(du -sh "$BACKUP_DIR" 2>/dev/null | cut -f1)"
+echo "Log      : $LOG_FILE"
+echo "Completed: $(date)" >>"$LOG_FILE"

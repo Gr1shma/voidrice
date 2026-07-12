@@ -1,0 +1,18 @@
+[credential "https://github.com"]
+    helper =
+    helper = !/usr/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !/usr/bin/gh auth git-credential
+[user]
+    name = Grishma Dhakal
+    email = dhakalgrishma5@gmail.com
+[advice]
+    statusHints = false
+[init]
+    defaultBranch = main
+[push]
+    autoSetupRemote = true
+    default = current
+[gpg]
+    program = gpg

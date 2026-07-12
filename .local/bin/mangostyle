@@ -1,0 +1,232 @@
+#!/bin/bash
+
+WALLPAPER_DIR=~/pix/wallpaper
+MONITOR="eDP-1"
+WALLPAPER="$1"
+
+WALLPAPER_DIR="${WALLPAPER_DIR/#\~/$HOME}"
+
+log() {
+    echo "[$(date '+%H:%M:%S')] $1"
+}
+
+start_awww_daemon() {
+    if ! command -v awww &>/dev/null || ! command -v awww-daemon &>/dev/null; then
+        log "Error: awww/awww-daemon not found"
+        exit 1
+    fi
+
+    if pgrep -x "awww-daemon" >/dev/null 2>&1; then
+        log "awww-daemon is already running"
+        return 0
+    fi
+
+    log "Starting awww-daemon..."
+    setsid awww-daemon --quiet &>/dev/null &
+
+    for i in {1..10}; do
+        sleep 1
+        if pgrep -x "awww-daemon" >/dev/null 2>&1; then
+            log "awww-daemon started (waited ${i}s)"
+            return 0
+        fi
+    done
+
+    log "Error: Failed to start awww-daemon"
+    exit 1
+}
+
+choose_random_wallpaper() {
+    log "No wallpaper specified. Picking a random one from $WALLPAPER_DIR..."
+
+    if [[ ! -d $WALLPAPER_DIR ]]; then
+        log "Error: Wallpaper directory does not exist: $WALLPAPER_DIR"
+        exit 1
+    fi
+
+    mapfile -t wallpapers < <(find "$WALLPAPER_DIR" -type f \( -iname '*.jpg' -o -iname '*.png' -o -iname '*.jpeg' -o -iname '*.bmp' -o -iname '*.webp' -o -iname '*.gif' \) 2>/dev/null)
+
+    if [[ ${#wallpapers[@]} -eq 0 ]]; then
+        log "Error: No wallpapers found in $WALLPAPER_DIR"
+        exit 1
+    fi
+
+    WALLPAPER="${wallpapers[RANDOM % ${#wallpapers[@]}]}"
+    log "Selected random wallpaper: $(basename "$WALLPAPER")"
+}
+
+resolve_wallpaper_path() {
+    local input="$1"
+
+    if [[ -z $input ]]; then
+        echo ""
+        return 1
+    fi
+
+    if [[ $input == /* ]] && [[ -f $input ]]; then
+        echo "$input"
+        return 0
+    fi
+
+    if [[ -f $input ]]; then
+        realpath "$input" 2>/dev/null || echo "$input"
+        return 0
+    fi
+
+    if [[ -f "$WALLPAPER_DIR/$input" ]]; then
+        echo "$WALLPAPER_DIR/$input"
+        return 0
+    fi
+
+    for ext in jpg png jpeg bmp webp gif; do
+        if [[ -f "$WALLPAPER_DIR/$input.$ext" ]]; then
+            echo "$WALLPAPER_DIR/$input.$ext"
+            return 0
+        fi
+    done
+
+    echo "$input"
+    return 1
+}
+
+set_wallpaper() {
+    local wallpaper="$1"
+
+    if [[ ! -f $wallpaper ]]; then
+        log "Error: Wallpaper file not found -> $wallpaper"
+        exit 1
+    fi
+
+    log "Applying wallpaper with awww..."
+
+    if ! awww img "$wallpaper" --outputs "$MONITOR" --resize crop --transition-type none; then
+        log "Warning: Failed for $MONITOR, trying all outputs"
+        if ! awww img "$wallpaper" --resize crop --transition-type none; then
+            log "Error: Failed to apply wallpaper with awww"
+            return 1
+        fi
+    fi
+
+    log "Wallpaper set successfully: $(basename "$wallpaper")"
+}
+
+apply_rmpc_theme() {
+    local generated_template="$HOME/.cache/wal/rmpc-colors.ron"
+    local rmpc_theme_dir="$HOME/.config/rmpc/themes"
+    local rmpc_theme="$rmpc_theme_dir/theme.ron"
+
+    if [[ ! -f $generated_template ]]; then
+        log "Warning: pywal template output not found: $generated_template"
+        log "Tip: create ~/.config/wal/templates/rmpc-colors.ron"
+        return 1
+    fi
+
+    mkdir -p "$rmpc_theme_dir"
+
+    if cp "$generated_template" "$rmpc_theme" 2>/dev/null; then
+        log "rmpc theme updated from pywal template: $rmpc_theme"
+        return 0
+    fi
+
+    log "Warning: Failed to copy rmpc theme template output"
+    return 1
+}
+
+apply_mango_borders() {
+    local generated_template="$HOME/.cache/wal/mango-colors.conf"
+
+    if [[ ! -f $generated_template ]]; then
+        log "Warning: pywal template output not found: $generated_template"
+        log "Tip: create ~/.config/wal/templates/mango-colors.conf"
+        return 1
+    fi
+
+    if command -v mmsg &>/dev/null; then
+        if mmsg -s -d reload_config >/dev/null 2>&1; then
+            log "Mango config reloaded (pywal border template applied)"
+        else
+            log "Warning: Could not reload Mango config automatically"
+        fi
+    fi
+
+    log "Mango border colors are managed by pywal template: $generated_template"
+}
+
+apply_theme() {
+    local wallpaper="$1"
+    log "Applying theme based on $(basename "$wallpaper")..."
+
+    if ! command -v wal &>/dev/null; then
+        log "Warning: 'wal' (pywal) not found. Skipping theme generation."
+        return 0
+    fi
+
+    log "Generating color palette with pywal..."
+    if ! wal -i "$wallpaper" --saturate 0.7 &>/dev/null; then
+        log "Error: Failed to generate colors with wal"
+        return 1
+    fi
+
+    local waybar_config="$HOME/.config/waybar"
+    if [[ -f "$HOME/.cache/wal/colors-waybar.css" ]]; then
+        mkdir -p "$waybar_config"
+        ln -sf "$HOME/.cache/wal/colors-waybar.css" "$waybar_config/colors-waybar.css" &>/dev/null
+        log "Linked pywal colors to Waybar"
+    fi
+
+    if pgrep -x "waybar" >/dev/null 2>&1; then
+        log "Reloading Waybar..."
+        pkill waybar &>/dev/null
+        sleep 1
+        if command -v waybar &>/dev/null; then
+            setsid waybar &>/dev/null &
+            log "Waybar reloaded"
+        else
+            log "Warning: waybar command not found"
+        fi
+    else
+        log "Waybar is not running, skipping reload"
+    fi
+
+    apply_mango_borders
+    apply_rmpc_theme
+
+    if command -v eww &>/dev/null; then
+        log "Reloading eww..."
+        eww reload &>/dev/null || log "Warning: eww reload failed"
+    fi
+
+    log "Theme colors applied"
+}
+
+trap 'log "Script interrupted"; exit 1' INT TERM
+
+log "Starting Mango wallpaper setup script..."
+
+if [[ -z $WALLPAPER ]]; then
+    choose_random_wallpaper
+else
+    log "Resolving wallpaper path for: $WALLPAPER"
+    if ! WALLPAPER=$(resolve_wallpaper_path "$WALLPAPER"); then
+        log "Error: Could not resolve wallpaper path: $1"
+        log "Make sure the file exists or try using an absolute path"
+        exit 1
+    fi
+    log "Resolved wallpaper path: $WALLPAPER"
+
+    if [[ ! -f $WALLPAPER ]]; then
+        log "Error: Wallpaper file not found -> $WALLPAPER"
+        log "Please check the file path and try again"
+        exit 1
+    fi
+fi
+
+start_awww_daemon
+
+if set_wallpaper "$WALLPAPER"; then
+    apply_theme "$WALLPAPER"
+    log "Wallpaper and theme setup completed successfully!"
+else
+    log "Wallpaper apply failed; theme will not be updated"
+    exit 1
+fi

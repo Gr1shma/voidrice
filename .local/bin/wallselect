@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+WALLPAPER_DIR="$HOME/pix/wallpaper"
+
+if [[ ! -d "$WALLPAPER_DIR" ]]; then
+    notify-send "Wallpaper" "Directory not found: $WALLPAPER_DIR"
+    exit 1
+fi
+
+selected=$(find "$WALLPAPER_DIR" -type f | grep -iE '\.(jpg|png|jpeg|bmp|webp|gif)$' | sort |
+    sed "s|^$WALLPAPER_DIR/||" |
+    fzf --preview "chafa -s \${FZF_PREVIEW_COLUMNS}x\${FZF_PREVIEW_LINES} '$WALLPAPER_DIR/{}'" \
+        --preview-window=right:60%)
+
+[[ -n "$selected" ]] && selected="$WALLPAPER_DIR/$selected"
+
+if [[ -z "$selected" ]]; then
+    exit 0
+fi
+
+mangostyle "$selected"

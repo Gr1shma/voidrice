@@ -1,0 +1,14 @@
+[[mgr.prepend_keymap]]
+on   = "l"
+run  = "plugin smart-enter"
+desc = "Enter the child directory, or open the file"
+
+[[mgr.prepend_keymap]]
+on   = "<C-w>"
+run  = 'shell "mangostyle \"$0\"" --confirm'
+desc = "Set as wallpaper"
+
+[[mgr.prepend_keymap]]
+on   = "<C-t>"
+run  = 'shell "tmux-sessionizer \"$0\"" --block'
+desc = "Open in tmux-sessionizer"

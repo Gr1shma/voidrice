@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# Get the current pane's directory
+current_dir=$(tmux display-message -p '#{pane_current_path}')
+
+# Change to that directory
+cd "$current_dir" || exit 1
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+	tmux display-message "Not in a git repository"
+	exit 1
+fi
+
+# Get the remote URL
+remote_url=$(git config --get remote.origin.url)
+
+if [ -z "$remote_url" ]; then
+	tmux display-message "No remote origin found"
+	exit 1
+fi
+
+# Convert SSH URL to HTTPS if needed
+if [[ $remote_url =~ ^git@.*:.*\.git$ ]]; then
+	# SSH format: git@github.com:user/repo.git
+	remote_url=$(echo "$remote_url" | sed -e 's/:/\//g' -e 's/git@/https:\/\//g' -e 's/\.git$//')
+elif [[ $remote_url =~ ^git@.*\/.*\.git$ ]]; then
+	# Alternative SSH format: git@github.com/user/repo.git
+	remote_url=$(echo "$remote_url" | sed -e 's/git@/https:\/\//g' -e 's/\.git$//')
+fi
+
+# Remove .git suffix if present
+remote_url="${remote_url%.git}"
+
+# Get current branch
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+
+# Append branch to URL if available
+if [ -n "$branch" ] && [ "$branch" != "master" ] && [ "$branch" != "main" ]; then
+	# GitHub/GitLab style
+	if [[ $remote_url =~ github\.com|gitlab\.com ]]; then
+		remote_url="${remote_url}/tree/${branch}"
+	# Bitbucket style
+	elif [[ $remote_url =~ bitbucket\.org ]]; then
+		remote_url="${remote_url}/src/${branch}"
+	fi
+fi
+
+# Open the URL in default browser
+if command -v xdg-open >/dev/null; then
+	xdg-open "$remote_url" >/dev/null 2>&1 &
+elif command -v open >/dev/null; then
+	open "$remote_url" >/dev/null 2>&1 &
+else
+	# Fallback: copy to clipboard
+	echo "$remote_url" | wl-copy
+	tmux display-message "URL copied to clipboard: $remote_url"
+	exit 0
+fi
+
+tmux display-message "Opening: $remote_url"

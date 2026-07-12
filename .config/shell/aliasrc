@@ -1,0 +1,59 @@
+#!/bin/sh
+
+[ -x "$(command -v nvim)" ] && alias vim="nvim" vimdiff="nvim -d"
+[ -x "$(command -v doas)" ] && alias sudo="doas"
+
+for command in mount umount sv xbps-install su shutdown poweroff reboot docker; do
+    alias $command="doas $command"
+done
+unset command
+
+se() {
+    choice="$(find ~/.local/bin -mindepth 1 -printf '%P\n' | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Scripts: ')"
+    [ -f "$HOME/.local/bin/$choice" ] && $EDITOR "$HOME/.local/bin/$choice"
+}
+
+# program
+alias \
+    z='zathura' \
+    t='tmux' \
+    y='yazi' \
+    e="$EDITOR" \
+    v="$EDITOR" \
+    pu="doas xbps-install -Su" \
+    sn="search_notes"
+
+# Colorize commands when possible.
+alias \
+    ls="ls -hN --color=auto --group-directories-first" \
+    grep="grep --color=auto" \
+    diff="diff --color=auto" \
+    ip="ip -color=auto" \
+    l="ls -lah"
+
+# yt-dlp
+alias \
+    ytbdl="yt-dlp -f 'bv+ba/best' -o '%(title)s.%(ext)s' --external-downloader=aria2c" \
+    ytadl="yt-dlp -x --audio-format flac -o '%(title)s.%(ext)s' --external-downloader=aria2c" \
+    ytdl="yt-dlp -f 'best' -o '%(title)s.%(ext)s' --external-downloader=aria2c" \
+    ytpdl="yt-dlp -f 'bv*+ba/best' -o '%(playlist_index)s. %(title)s.%(ext)s'" \
+    ytapdl="yt-dlp -x --audio-format flac -o '%(title)s.%(ext)s' --external-downloader=aria2c"
+
+# terminal
+alias hst="history 1 -1 | cut -c 8- | sort | uniq | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'History: ' | tr -d '\n' | wl-copy"
+
+# hard-drive
+alias \
+    hd='/run/media/grishma/E27AFFE97AFFB87D' \
+    mnt='udisksctl mount -b /dev/sda2' \
+    unmnt='udisksctl unmount -b /dev/sda2' \
+    hdfix='doas ntfsfix -d /dev/sda2'
+
+# git
+alias \
+    gl='git log --oneline --graph' \
+    gs='git status'
+
+# help
+alias \
+    fspace='df -h / | tail -n 1 | awk "{print \$4}"'

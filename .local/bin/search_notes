@@ -1,0 +1,24 @@
+#!/usr/bin/env zsh
+
+NOTES_DIR="$HOME/dox/abstract"
+notes=$(find "$NOTES_DIR" -type f -name "*.md" ! -name "*template*" -printf "%P\n" | sort)
+
+selected=$(printf "[Create New Note]\n%s" "$notes" |
+    fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Notes: ' \
+        --preview "bat --style=plain --color=always $NOTES_DIR/{} 2>/dev/null || echo 'Create new note'" \
+        --preview-window=right:60%)
+
+[[ -z "$selected" ]] && exit 0
+
+if [[ $selected == "[Create New Note]" ]]; then
+    note_name=$(printf "" | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'New note name: ' --print-query | head -1)
+    [[ -z "$note_name" ]] && exit 0
+    [[ ! $note_name =~ \.md$ ]] && note_name="${note_name}.md"
+    note_file="$NOTES_DIR/$note_name"
+    mkdir -p "$(dirname "$note_file")"
+else
+    note_file="$NOTES_DIR/$selected"
+    [[ ! -f $note_file ]] && exit 1
+fi
+
+nvim "$note_file"

@@ -1,0 +1,21 @@
+highlight_color = "Yellow"
+cursor = "█"
+terminal_launcher = "foot -e"
+hard_stop = false
+
+rounded_borders = false
+
+main_border_color = "White"
+apps_border_color = "White"
+input_border_color = "White"
+
+main_text_color = "White"
+apps_text_color = "White"
+input_text_color = "White"
+
+fancy_mode = true
+
+header_title_color = "Green"
+
+title_panel_height_percent = 30
+input_panel_height = 3

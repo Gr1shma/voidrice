@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+PROJECT_DIRS=("$HOME/code" "$HOME/personal" "$HOME/projects")
+
+todos=()
+for dir in "${PROJECT_DIRS[@]}"; do
+    [[ -d "$dir" ]] || continue
+    for todo in "$dir"/*/TODO.md; do
+        [[ -f "$todo" ]] && todos+=("$todo")
+    done
+done
+
+[[ ${#todos[@]} -eq 0 ]] && { echo "No TODO.md files found."; exit 1; }
+
+selected=$(printf '%s\n' "${todos[@]}" |
+    sed "s|$HOME/||; s|/TODO.md$||" |
+    fzf --reverse --no-scrollbar --padding 1,3 --prompt 'TODO: ')
+
+[[ -z "$selected" ]] && exit 0
+
+grc "$HOME/$selected/TODO.md"
