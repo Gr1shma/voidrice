@@ -5,27 +5,34 @@ setopt autocd
 stty stop undef
 setopt interactive_comments
 
+: "${XDG_CACHE_HOME:=$HOME/.cache}"
+: "${XDG_CONFIG_HOME:=$HOME/.config}"
+
 HISTSIZE=10000000
 SAVEHIST=10000000
-HISTDIR="${XDG_CACHE_HOME:-$HOME/.cache}/zsh"
+HISTDIR="$XDG_CACHE_HOME/zsh"
 mkdir -p "$HISTDIR"
 HISTFILE="$HISTDIR/history"
 setopt inc_append_history
 
 [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/shell/aliasrc" ] && source "${XDG_CONFIG_HOME:-$HOME/.config}/shell/aliasrc"
 
-# Basic auto/tab complete:
-autoload -U compinit
+# completion system setup
+autoload -Uz compinit
 zstyle ':completion:*' menu select
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path "$XDG_CACHE_HOME/zsh/zcompcache"
+
+compinit -d "$XDG_CACHE_HOME/zsh/zcompdump-$ZSH_VERSION"
+
 zmodload zsh/complist
-compinit
-_comp_options+=(globdots) # Include hidden files.
+_comp_options+=(globdots)
 
 # vi mode
 bindkey -v
 export KEYTIMEOUT=1
 
-# Use vim keys in tab complete menu:
+# vim keys in tab complete menu
 bindkey -M menuselect 'h' vi-backward-char
 bindkey -M menuselect 'k' vi-up-line-or-history
 bindkey -M menuselect 'l' vi-forward-char
@@ -37,7 +44,7 @@ bindkey -s '^n' 'search_notes\n'
 
 bindkey '^[[P' delete-char
 
-# Edit line in vim with ctrl-e:
+# edit line in vim with ctrl-e:
 autoload edit-command-line
 zle -N edit-command-line
 bindkey '^e' edit-command-line
@@ -48,15 +55,9 @@ bindkey -M visual '^[[P' vi-delete
 bindkey '^[[A' history-search-backward
 bindkey '^[[B' history-search-forward
 
-# Load syntax highlighting; should be last.
+[ -s "/home/grishma/.bun/_bun" ] && source "/home/grishma/.bun/_bun"
+. "/home/grishma/.local/share/cargo/env"
+
+# load syntax highlighting
 source /usr/share/zsh/plugins/fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh 2>/dev/null
 (cat ~/.cache/wal/sequences &)
-
-# bun completions
-[ -s "/home/grishma/.bun/_bun" ] && source "/home/grishma/.bun/_bun"
-
-# for dots
-compdef dots=git
-
-# for rust
-. "/home/grishma/.local/share/cargo/env"
