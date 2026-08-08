@@ -40,7 +40,7 @@ alias \
     ytapdl="yt-dlp -x --audio-format flac -o '%(title)s.%(ext)s' --external-downloader=aria2c"
 
 # terminal
-alias hst="history 1 -1 | cut -c 8- | sort | uniq | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'History: ' | tr -d '\n' | wl-copy"
+alias hst='history 1 | tac | sed "s/^ *[0-9]\+ *//" | awk "!seen[\$0]++" | fzf --no-sort --reverse --no-scrollbar --padding 1,3 --prompt "History: " | tr -d "\n" | wl-copy'
 
 # hard-drive
 alias \

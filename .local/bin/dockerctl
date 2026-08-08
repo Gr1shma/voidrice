@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+SERVICE="docker"
+LINK="/etc/runit/runsvdir/default/$SERVICE"
+TARGET="/etc/sv/$SERVICE"
+
+usage() {
+    echo "Usage: $(basename "$0") {start|stop|status}"
+    exit 1
+}
+
+case "${1:-}" in
+start)
+    if [ -L "$LINK" ]; then
+        echo "Docker is already enabled."
+        exit 0
+    fi
+
+    echo "Enabling Docker..."
+    sudo ln -s "$TARGET" "$LINK"
+
+    echo -n "Waiting for Docker"
+    until docker info >/dev/null 2>&1; do
+        printf "."
+        sleep 0.2
+    done
+
+    echo " done!"
+    ;;
+
+stop)
+    if [ ! -L "$LINK" ]; then
+        echo "Docker is already disabled."
+        exit 0
+    fi
+
+    echo "Disabling Docker..."
+    sudo rm "$LINK"
+
+    echo -n "Waiting for Docker to stop"
+    while docker info >/dev/null 2>&1; do
+        printf "."
+        sleep 0.2
+    done
+
+    echo " done!"
+    ;;
+
+status)
+    if [ -L "$LINK" ]; then
+        if docker info >/dev/null 2>&1; then
+            echo "Docker: running"
+        else
+            echo "Docker: starting..."
+        fi
+    else
+        echo "Docker: disabled"
+    fi
+    ;;
+
+*)
+    usage
+    ;;
+esac
