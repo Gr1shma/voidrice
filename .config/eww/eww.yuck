@@ -6,13 +6,13 @@
 (defpoll cpu_usage   :interval "1s"  "~/.config/eww/scripts/cpu.sh")
 (defpoll mem_usage   :interval "1s"  "~/.config/eww/scripts/mem.sh")
 (defpoll battery_json :interval "10s" :initial "{\"capacity\":0,\"icon\":\"\",\"charging\":false}" "~/.config/eww/scripts/battery.sh")
-(defpoll net_str     :interval "2s"  "~/.config/eww/scripts/network.sh")
-(defpoll vol_str     :interval "0.5s"  "~/.config/eww/scripts/volume.sh")
-(defpoll backlight_str :interval "0.5s" "~/.config/eww/scripts/backlight.sh")
-(defpoll clock_str :interval "0.5s"
+(defpoll net_str     :interval "30s"  "~/.config/eww/scripts/network.sh")
+(deflisten vol_str "~/.config/eww/scripts/volume.sh")
+(deflisten backlight_str "~/.config/eww/scripts/backlight.sh")
+(defpoll clock_str :interval "30s"
   `TZ="Asia/Kathmandu" date '+%a %d %b  %I:%M %p'`)
 
-(defpoll media_str :interval "1s" :initial "  No Media"
+(defpoll media_str :interval "5s" :initial "  No Media"
   `~/.config/eww/scripts/media_info.sh | jq -r '.display_text // "No Media"' 2>/dev/null || echo "No Media"`)
 
 (defvar show_media false)
