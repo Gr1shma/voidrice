@@ -6,6 +6,7 @@ additional_locations=(
     ~/.config/foot/
     ~/.config/eww/
     ~/.local/bin/
+    ~/.dotfiles/
 )
 
 if [[ $# -eq 1 ]]; then

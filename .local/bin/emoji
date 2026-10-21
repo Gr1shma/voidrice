@@ -45,9 +45,8 @@ pick_emoji() {
 }
 
 usage() {
-    echo "Usage: $(basename "$0") [-c] [-t] [-e] [-D] [-h]"
+    echo "Usage: $(basename "$0") [-c] [-e] [-D] [-h]"
     echo "  -c  Copy to clipboard (default)"
-    echo "  -t  Type the emoji"
     echo "  -e  Echo the emoji"
     echo "  -D  Download emoji database"
     echo "  -h  Show help"
@@ -59,7 +58,6 @@ cmds=()
 while getopts "cteDh" arg; do
     case "$arg" in
     c) cmds+=("clip") ;;
-    t) cmds+=("type") ;;
     e) cmds+=("echo") ;;
     D) download_emojis && exit 0 ;;
     h) usage 0 ;;
@@ -80,7 +78,6 @@ add_to_history "$selection"
 for cmd in "${cmds[@]}"; do
     case "$cmd" in
     clip) printf "%s" "$result" | wl-copy ;;
-    type) wtype -s 30 "$result" ;;
     echo) printf "%s\n" "$result" ;;
     esac
 done
