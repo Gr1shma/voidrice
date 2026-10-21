@@ -9,8 +9,8 @@ done
 unset command
 
 se() {
-    choice="$(find ~/.local/bin -mindepth 1 -printf '%P\n' | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Scripts: ')"
-    [ -f "$HOME/.local/bin/$choice" ] && $EDITOR "$HOME/.local/bin/$choice"
+    choice="$(git -C "$HOME/.dotfiles" ls-files '.local/bin/*' | sed 's|^\.local/bin/||' | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Scripts: ')"
+    [ -n "$choice" ] && $EDITOR "$HOME/.dotfiles/.local/bin/$choice"
 }
 
 # program

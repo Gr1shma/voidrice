@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+# btmenu - fast fzf bluetooth menu with a cache of known devices
+
+SCAN_TIME=6
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/btmenu"
+CACHE="$CACHE_DIR/devices" # MAC<TAB>Name
+mkdir -p "$CACHE_DIR"
+touch "$CACHE"
+
+msg() {
+    echo "$1"
+    notify-send "Bluetooth" "$1" 2>/dev/null
+}
+
+is_powered() { bluetoothctl show | grep -q "Powered: yes"; }
+
+power_on() {
+    is_powered && return 0
+    rfkill unblock bluetooth 2>/dev/null
+    bluetoothctl power on >/dev/null
+    sleep 1
+    is_powered || {
+        msg "Failed to power on controller"
+        return 1
+    }
+}
+
+power_off() { bluetoothctl power off >/dev/null && msg "Bluetooth powered off"; }
+
+# run a bluetoothctl command, return as soon as it reports a result
+# (bluetoothctl sometimes lingers after connect/disconnect/pair)
+# usage: bt_run <max_seconds> <args...>
+bt_run() {
+    local max=$1 tmp pid i
+    shift
+    tmp=$(mktemp)
+    bluetoothctl "$@" >"$tmp" 2>&1 &
+    pid=$!
+    for ((i = 0; i < max * 5; i++)); do
+        grep -qiE "successful|failed|not available|already" "$tmp" && break
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.2
+    done
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    rm -f "$tmp"
+}
+
+is_connected() { bluetoothctl info "$1" | grep -q "Connected: yes"; }
+
+# add/update device in cache
+cache_add() {
+    local mac=$1 name=$2
+    grep -v "^$mac"$'\t' "$CACHE" >"$CACHE.tmp"
+    printf '%s\t%s\n' "$mac" "$name" >>"$CACHE.tmp"
+    mv "$CACHE.tmp" "$CACHE"
+}
+
+# seed cache from bluez's own paired list (single fast call)
+cache_seed() {
+    bluetoothctl devices Paired | while read -r _ mac name; do
+        grep -q "^$mac"$'\t' "$CACHE" || printf '%s\t%s\n' "$mac" "$name" >>"$CACHE"
+    done
+}
+
+# MAC<TAB>Name [connected] for cached devices
+known_list() {
+    local connected
+    connected=$(bluetoothctl devices Connected | awk '{print $2}')
+    while IFS=$'\t' read -r mac name; do
+        [[ -z "$mac" ]] && continue
+        if grep -q "$mac" <<<"$connected"; then
+            printf '%s\t%s [connected]\n' "$mac" "$name"
+        else
+            printf '%s\t%s\n' "$mac" "$name"
+        fi
+    done <"$CACHE"
+}
+
+fzf_pick() { # reads list on stdin, prints MAC
+    fzf --delimiter=$'\t' --with-nth=2.. --prompt="${1:-device} > " --height=40% --reverse | cut -f1
+}
+
+connect_mac() {
+    local mac=$1 name=$2
+    echo "Connecting to $name..."
+    bt_run 15 connect "$mac"
+    if ! is_connected "$mac"; then
+        echo "Not paired or unavailable, trying pair..."
+        bt_run 30 pair "$mac"
+        bluetoothctl trust "$mac" >/dev/null
+        bt_run 15 connect "$mac"
+    fi
+    if is_connected "$mac"; then
+        bluetoothctl trust "$mac" >/dev/null
+        cache_add "$mac" "$name"
+        msg "Connected: $name"
+    else
+        msg "Connection failed: $name"
+        return 1
+    fi
+}
+
+scan_and_pick() {
+    echo "Scanning for ${SCAN_TIME}s..."
+    bluetoothctl --timeout "$SCAN_TIME" scan on >/dev/null
+    # skip unnamed devices (name is just the MAC with dashes)
+    bluetoothctl devices | while read -r _ mac name; do
+        [[ "$name" == "${mac//:/-}" ]] && continue
+        printf '%s\t%s\n' "$mac" "$name"
+    done | fzf_pick "new device"
+}
+
+action_connect() {
+    power_on || exit 1
+    cache_seed
+    local list mac name
+    list=$(
+        known_list
+        printf 'SCAN\t[ scan for new devices ]\n'
+    )
+    mac=$(fzf_pick "connect" <<<"$list")
+    [[ -z "$mac" ]] && exit 0
+    if [[ "$mac" == "SCAN" ]]; then
+        mac=$(scan_and_pick)
+        [[ -z "$mac" ]] && exit 0
+    fi
+    name=$(bluetoothctl devices | awk -v m="$mac" '$2==m {$1=$2=""; sub(/^ +/,""); print}')
+    [[ -z "$name" ]] && name=$(awk -F'\t' -v m="$mac" '$1==m {print $2}' "$CACHE")
+    connect_mac "$mac" "${name:-$mac}"
+}
+
+action_disconnect() {
+    local list mac
+    list=$(bluetoothctl devices Connected | while read -r _ mac name; do
+        printf '%s\t%s\n' "$mac" "$name"
+    done)
+    [[ -z "$list" ]] && {
+        msg "No connected devices"
+        exit 0
+    }
+    mac=$(fzf_pick "disconnect" <<<"$list")
+    [[ -z "$mac" ]] && exit 0
+    bt_run 10 disconnect "$mac"
+    is_connected "$mac" && msg "Disconnect failed" || msg "Disconnected"
+}
+
+action_forget() {
+    local mac
+    mac=$(known_list | fzf_pick "forget")
+    [[ -z "$mac" ]] && exit 0
+    bluetoothctl remove "$mac" >/dev/null
+    grep -v "^$mac"$'\t' "$CACHE" >"$CACHE.tmp"
+    mv "$CACHE.tmp" "$CACHE"
+    msg "Removed $mac"
+}
+
+choice=$(printf '%s\n' \
+    "Connect device" \
+    "Disconnect device" \
+    "Power on" \
+    "Power off" \
+    "Forget device" |
+    fzf --prompt="bluetooth > " --height=40% --reverse)
+
+case "$choice" in
+"Connect device") action_connect ;;
+"Disconnect device") action_disconnect ;;
+"Power on") power_on && msg "Bluetooth powered on" ;;
+"Power off") power_off ;;
+"Forget device") action_forget ;;
+esac
