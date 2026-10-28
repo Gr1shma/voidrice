@@ -4,7 +4,7 @@ additional_locations=(
     ~/.config/mango/
     ~/.config/nvim/
     ~/.config/foot/
-    ~/.config/eww/
+    ~/.config/mangobar/
     ~/.local/bin/
     ~/.dotfiles/
 )

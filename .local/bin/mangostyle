@@ -7,7 +7,7 @@ WALLPAPER="$1"
 WALLPAPER_DIR="${WALLPAPER_DIR/#\~/$HOME}"
 
 log() {
-    echo "[$(date '+%H:%M:%S')] $1"
+    printf '[%(%H:%M:%S)T] %s\n' -1 "$1"
 }
 
 start_awww_daemon() {
@@ -16,20 +16,17 @@ start_awww_daemon() {
         exit 1
     fi
 
-    if pgrep -x "awww-daemon" >/dev/null 2>&1; then
+    if awww query &>/dev/null; then
         log "awww-daemon is already running"
         return 0
     fi
 
     log "Starting awww-daemon..."
-    setsid awww-daemon --quiet &>/dev/null &
+    setsid -f awww-daemon --quiet &>/dev/null
 
-    for i in {1..10}; do
-        sleep 1
-        if pgrep -x "awww-daemon" >/dev/null 2>&1; then
-            log "awww-daemon started (waited ${i}s)"
-            return 0
-        fi
+    for _ in {1..50}; do
+        awww query &>/dev/null && return 0
+        sleep 0.1
     done
 
     log "Error: Failed to start awww-daemon"
@@ -152,6 +149,39 @@ apply_mango_borders() {
     log "Mango border colors are managed by pywal template: $generated_template"
 }
 
+apply_mangobar_theme() {
+    local generated_template="$HOME/.cache/wal/mangobar-colors.css"
+
+    if [[ ! -f $generated_template ]]; then
+        log "Warning: pywal template output not found: $generated_template"
+        log "Tip: create ~/.config/wal/templates/mangobar-colors.css"
+        return 1
+    fi
+
+    if ! pgrep -x mangobar >/dev/null 2>&1; then
+        log "mangobar is not running, skipping restart"
+        return 0
+    fi
+
+    log "Restarting mangobar to load the new pywal colors..."
+    pkill -x mangobar &>/dev/null
+
+    for _ in {1..20}; do
+        pgrep -x mangobar >/dev/null 2>&1 || break
+        sleep 0.1
+    done
+
+    # still alive after 2s -> force kill
+    if pgrep -x mangobar >/dev/null 2>&1; then
+        log "mangobar ignored SIGTERM, sending SIGKILL"
+        pkill -9 -x mangobar &>/dev/null
+        sleep 0.2
+    fi
+
+    setsid -f mangobar &>/dev/null
+    log "mangobar restarted"
+}
+
 apply_theme() {
     local wallpaper="$1"
     log "Applying theme based on $(basename "$wallpaper")..."
@@ -162,39 +192,15 @@ apply_theme() {
     fi
 
     log "Generating color palette with pywal..."
-    if ! wal -i "$wallpaper" --saturate 0.7 &>/dev/null; then
+    if ! wal -i "$wallpaper" -n -e -q --saturate 0.7 &>/dev/null; then
         log "Error: Failed to generate colors with wal"
         return 1
     fi
 
-    local waybar_config="$HOME/.config/waybar"
-    if [[ -f "$HOME/.cache/wal/colors-waybar.css" ]]; then
-        mkdir -p "$waybar_config"
-        ln -sf "$HOME/.cache/wal/colors-waybar.css" "$waybar_config/colors-waybar.css" &>/dev/null
-        log "Linked pywal colors to Waybar"
-    fi
-
-    if pgrep -x "waybar" >/dev/null 2>&1; then
-        log "Reloading Waybar..."
-        pkill waybar &>/dev/null
-        sleep 1
-        if command -v waybar &>/dev/null; then
-            setsid waybar &>/dev/null &
-            log "Waybar reloaded"
-        else
-            log "Warning: waybar command not found"
-        fi
-    else
-        log "Waybar is not running, skipping reload"
-    fi
-
-    apply_mango_borders
-    apply_rmpc_theme
-
-    if command -v eww &>/dev/null; then
-        log "Reloading eww..."
-        eww reload &>/dev/null || log "Warning: eww reload failed"
-    fi
+    apply_mango_borders &
+    apply_rmpc_theme &
+    apply_mangobar_theme &
+    wait
 
     log "Theme colors applied"
 }

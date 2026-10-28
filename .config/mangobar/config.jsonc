@@ -1,0 +1,60 @@
+{
+    "output": "eDP-1",
+    "layer": "top",
+    "height": 25,
+    "sys-interval": 2,
+
+    "modules-left":   ["workspaces"],
+    "modules-center": ["clock#date", "clock#time"],
+    "modules-right":  ["pulseaudio", "backlight", "battery", "network", "tray"],
+
+    "workspaces": {
+        "hide-empty": true,
+        "on-click": "activate",
+        "on-click-right": "toggle"
+    },
+
+    "clock#date": { "format": "{:L%a %d %b}" },
+    "clock#time": { "format": "{:L%I:%M %p}" },
+
+    "pulseaudio": {
+        "format": "{icon}  {volume}%",
+        "format-muted": "{icon}",
+        "icons": ["\uf028"],
+        "icon-muted": "\uf026",
+        "on-click": "foot --app-id floating-term -e pulsemixer",
+        "on-scroll-up": "pamixer -i 5",
+        "on-scroll-down": "pamixer -d 5"
+    },
+
+    "backlight": {
+        "format": "{icon} {percent}%",
+        "icons": ["\uf185"],
+        "on-scroll-up": "brightness-set +5%",
+        "on-scroll-down": "brightness-set 5%-"
+    },
+
+    "battery": {
+        "format": "{icon} {percent}%",
+        "icons": ["\uf244", "\uf243", "\uf242", "\uf241", "\uf240"],
+        "icon-charging": "\uf0e7",
+        "icon-full": "\uf240",
+        "icon-ac": "\uf1e6"
+    },
+
+    "network": {
+        "format": "{icon} {ifname}",
+        "format-wifi": "{icon}  {ssid}",
+        "format-ethernet": "{icon} {ifname}",
+        "format-disconnected": "\uf071 Disconnected",
+        "format-alt": "↓{down} ↑{up}",
+        "icon-wifi": "\uf1eb",
+        "icon-ethernet": "\uf6ff",
+        "interval": 30
+    },
+
+    "tray": {
+        "icon-size": 16,
+        "spacing": 5
+    }
+}
