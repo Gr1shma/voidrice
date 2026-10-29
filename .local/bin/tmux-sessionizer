@@ -1,37 +1,66 @@
 #!/usr/bin/env bash
 
-additional_locations=(
-    ~/.config/mango/
-    ~/.config/nvim/
-    ~/.config/foot/
-    ~/.config/mangobar/
-    ~/.local/bin/
-    ~/.dotfiles/
+search_roots=(
+    ~/personal
+    ~/projects
+    ~/.local/src
+    ~/code
+    ~/sem
+    ~
 )
 
+additional_locations=(
+    ~/.config/mango
+    ~/.config/nvim
+    ~/.config/foot
+    ~/.config/mangobar
+    ~/.local/bin
+    ~/.dotfiles
+)
+
+list_dirs() {
+    for root in "${search_roots[@]}"; do
+        [[ -d $root ]] || continue
+        fd --type d --max-depth 1 --hidden --exclude '.*' \
+            --absolute-path . "$root" 2>/dev/null
+    done
+    printf '%s\n' "${additional_locations[@]}"
+}
+
+short_name() {
+    awk -F/ '{print $(NF-1) "/" $NF}'
+}
+
 if [[ $# -eq 1 ]]; then
-    selected=$1
+    selected=${1%/}
 else
-    base_results=$(fd --type d --max-depth 1 --hidden \
-        --exclude '.*' \
-        . ~/code/ ~/sem/ ~/ ~/personal ~/projects ~/.local/src/ 2>/dev/null)
-    additional_results=$(printf '%s\n' "${additional_locations[@]}")
-    selected=$(printf '%s\n%s' "$base_results" "$additional_results" |
-        fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Sessions: ')
+    selected=$(
+        list_dirs |
+            sed 's#/*$##' |
+            awk '!seen[$0]++' |
+            awk -v home="$HOME" '{
+            d = $0
+            if (index(d, home) == 1) d = "~" substr(d, length(home) + 1)
+            print d "\t" $0
+        }' |
+            fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Sessions: ' \
+                --delimiter=$'\t' --with-nth=1 --tiebreak=index |
+            cut -f2
+    )
 fi
 
 [[ -z $selected ]] && exit 0
 
-selected_name=$(basename "$selected" | tr ":,. " "____")
+selected_name=$(short_name <<<"$selected" | tr ":,. " "____")
 tmux_running=$(pgrep tmux)
 
 if [[ -z $TMUX ]] && [[ -z $tmux_running ]]; then
-    tmux new-session -s $selected_name -c $selected
+    tmux new-session -s "$selected_name" -c "$selected"
     exit 0
 fi
 
-if ! tmux has-session -t=$selected_name 2>/dev/null; then
-    tmux new-session -ds $selected_name -c $selected
+if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+    tmux new-session -ds "$selected_name" -c "$selected"
 fi
 
-tmux switch-client -t $selected_name
+tmux switch-client -t "$selected_name"
