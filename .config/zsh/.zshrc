@@ -55,6 +55,32 @@ bindkey -M visual '^[[P' vi-delete
 bindkey '^[[A' history-search-backward
 bindkey '^[[B' history-search-forward
 
+# prepend doas to the current line (or to the last command if the line is empty)
+doas-last() {
+    [[ -z $BUFFER ]] && BUFFER=$history[$((HISTCMD - 1))]
+    [[ $BUFFER != doas\ * ]] && BUFFER="doas $BUFFER"
+    CURSOR=$#BUFFER
+}
+
+# toggle doas at the start of the line (Ctrl+S)
+doas-toggle() {
+    [[ -z $BUFFER ]] && BUFFER=$history[$((HISTCMD - 1))]
+    if [[ $BUFFER == doas\ * ]]; then
+        BUFFER=${BUFFER#doas }
+    else
+        BUFFER="doas $BUFFER"
+    fi
+    CURSOR=$#BUFFER
+}
+
+zle -N doas-last
+zle -N doas-toggle
+
+bindkey -M viins '^[[1;5A' doas-last # Ctrl+Up
+bindkey -M vicmd '^[[1;5A' doas-last
+bindkey -M viins '^s' doas-toggle # Ctrl+S
+bindkey -M vicmd '^s' doas-toggle
+
 [ -s "/home/grishma/.bun/_bun" ] && source "/home/grishma/.bun/_bun"
 . "/home/grishma/.local/share/cargo/env"
 
