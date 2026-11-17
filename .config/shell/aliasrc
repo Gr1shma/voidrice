@@ -13,6 +13,13 @@ se() {
     [ -n "$choice" ] && $EDITOR "$HOME/.dotfiles/.local/bin/$choice"
 }
 
+# mem
+mem() {
+    local p
+    p=$(printf '%s' "${1:-.}" | sed 's/\(^\|[|]\)\([^.]\)/\1[\2]/g')
+    smem -t -k -P "$p"
+}
+
 # program
 alias \
     z='zathura' \

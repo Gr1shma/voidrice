@@ -36,7 +36,7 @@ case "${1:-}" in
 "")
     bookmarks=$(process_bookmarks)
     [[ -z $bookmarks ]] && exit 1
-    selection=$(echo "$bookmarks" | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Bookmarks: ')
+    selection=$(echo "$bookmarks" | fzf --reverse --no-scrollbar --padding 1,3 --prompt 'Bookmarks: ' --no-wrap --no-hscroll)
     [[ -n $selection ]] && handle_selection "$selection"
     ;;
 *) notify-send "Bookmarks" "Unknown option: $1" && exit 1 ;;

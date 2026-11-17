@@ -1,0 +1,29 @@
+[paths]
+bin_dir = "~/.local/share/iji/bin"
+source_dir = "~/.local/share/iji/src"
+
+[repos.iji]
+url = "https://github.com/Gr1shma/iji"
+
+[repos.grc]
+url = "https://github.com/Gr1shma/grc"
+
+[repos.fsel]
+url = "https://github.com/Mjoyufull/fsel"
+
+[repos.otter-launcher]
+url = "https://github.com/kuokuo123/otter-launcher"
+
+[repos.wayfreeze]
+url = "https://github.com/Jappie3/wayfreeze"
+
+[repos.go-grip]
+url = "https://github.com/chrishrb/go-grip"
+
+[repos.mangobar]
+url = "https://github.com/mangowm/mangobar"
+run = """
+meson setup build -Dprefix=/usr
+ninja -C build
+DESTDIR="$IJI_STAGE" ninja -C build install
+"""
