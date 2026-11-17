@@ -23,19 +23,18 @@
         "icons": ["\uf028"],
         "icon-muted": "\uf026",
         "on-click": "foot --app-id floating-term -e pulsemixer",
-        "on-scroll-up": "pamixer -i 5",
-        "on-scroll-down": "pamixer -d 5"
+        "scroll-step": 5,
     },
 
     "backlight": {
-        "format": "{icon} {percent}%",
+        "format": "{icon}  {percent}%",
         "icons": ["\uf185"],
         "on-scroll-up": "brightness-set +5%",
         "on-scroll-down": "brightness-set 5%-"
     },
 
     "battery": {
-        "format": "{icon} {percent}%",
+        "format": "{icon}  {percent}%",
         "icons": ["\uf244", "\uf243", "\uf242", "\uf241", "\uf240"],
         "icon-charging": "\uf0e7",
         "icon-full": "\uf240",
